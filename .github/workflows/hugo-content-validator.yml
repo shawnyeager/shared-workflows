@@ -52,29 +52,29 @@ jobs:
             # Title (required)
             if ! echo "$FRONTMATTER" | grep -q "^title:"; then
               echo "  ❌ Missing: title"
-              ((ERRORS++))
+              ERRORS=$((ERRORS + 1))
             fi
 
             # Date (required)
             if ! echo "$FRONTMATTER" | grep -q "^date:"; then
               echo "  ❌ Missing: date"
-              ((ERRORS++))
+              ERRORS=$((ERRORS + 1))
             fi
 
             # Description check (strict for essays, optional for notes)
             if [[ "${{ inputs.require_description }}" == "true" ]]; then
               if ! echo "$FRONTMATTER" | grep -q "^description:"; then
                 echo "  ❌ Missing: description (required for SEO and social sharing)"
-                ((ERRORS++))
+                ERRORS=$((ERRORS + 1))
               else
                 DESC=$(echo "$FRONTMATTER" | grep "^description:" | cut -d'"' -f2)
                 DESC_LEN=${#DESC}
                 if [ $DESC_LEN -lt 50 ]; then
                   echo "  ⚠️  Warning: description is short ($DESC_LEN chars, recommend 50-160)"
-                  ((WARNINGS++))
+                  WARNINGS=$((WARNINGS + 1))
                 elif [ $DESC_LEN -gt 160 ]; then
                   echo "  ⚠️  Warning: description is long ($DESC_LEN chars, recommend 50-160)"
-                  ((WARNINGS++))
+                  WARNINGS=$((WARNINGS + 1))
                 fi
               fi
             else
