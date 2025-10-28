@@ -1,0 +1,139 @@
+name: Hugo Content Validator
+
+on:
+  workflow_call:
+    inputs:
+      content_path:
+        description: 'Path to content directory to validate'
+        required: false
+        type: string
+        default: 'content/essays'
+      content_type:
+        description: 'Type of content (essays or notes)'
+        required: false
+        type: string
+        default: 'essays'
+      require_description:
+        description: 'Whether description field is required'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  validate-content:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run content validator
+        run: |
+          #!/bin/bash
+
+          ERRORS=0
+          WARNINGS=0
+
+          echo "🔍 Validating frontmatter for ${{ inputs.content_type }}..."
+          echo ""
+
+          # Find all markdown files (excluding _index.md)
+          while IFS= read -r -d '' file; do
+            # Skip _index.md files (Hugo list pages)
+            if [[ "$file" == *"_index.md" ]]; then
+              continue
+            fi
+
+            echo "Checking: $file"
+
+            # Extract frontmatter (between --- markers)
+            FRONTMATTER=$(awk '/^---$/{i++}i==1' "$file" | sed '1d;$d')
+
+            # Title (required)
+            if ! echo "$FRONTMATTER" | grep -q "^title:"; then
+              echo "  ❌ Missing: title"
+              ((ERRORS++))
+            fi
+
+            # Date (required)
+            if ! echo "$FRONTMATTER" | grep -q "^date:"; then
+              echo "  ❌ Missing: date"
+              ((ERRORS++))
+            fi
+
+            # Description check (strict for essays, optional for notes)
+            if [[ "${{ inputs.require_description }}" == "true" ]]; then
+              if ! echo "$FRONTMATTER" | grep -q "^description:"; then
+                echo "  ❌ Missing: description (required for SEO and social sharing)"
+                ((ERRORS++))
+              else
+                DESC=$(echo "$FRONTMATTER" | grep "^description:" | cut -d'"' -f2)
+                DESC_LEN=${#DESC}
+                if [ $DESC_LEN -lt 50 ]; then
+                  echo "  ⚠️  Warning: description is short ($DESC_LEN chars, recommend 50-160)"
+                  ((WARNINGS++))
+                elif [ $DESC_LEN -gt 160 ]; then
+                  echo "  ⚠️  Warning: description is long ($DESC_LEN chars, recommend 50-160)"
+                  ((WARNINGS++))
+                fi
+              fi
+            else
+              if ! echo "$FRONTMATTER" | grep -q "^description:"; then
+                echo "  ℹ️  Note: No description (optional for ${{ inputs.content_type }})"
+              fi
+            fi
+
+            # Topics (optional but recommended)
+            HAS_TOPICS=$(echo "$FRONTMATTER" | grep -c "^topics:" || true)
+            if [ $HAS_TOPICS -eq 0 ]; then
+              echo "  ℹ️  Note: No topics (optional)"
+            fi
+
+            # Check if draft
+            if echo "$FRONTMATTER" | grep -q "^draft: true"; then
+              echo "  ℹ️  Draft (skipping publish checks)"
+            fi
+
+            echo ""
+
+          done < <(find ${{ inputs.content_path }} -name "*.md" -type f -print0 2>/dev/null)
+
+          # Summary
+          echo "================================"
+          echo "Summary:"
+          echo "  Errors: $ERRORS"
+          echo "  Warnings: $WARNINGS"
+          echo "================================"
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ Validation failed with $ERRORS errors"
+            exit 1
+          elif [ $WARNINGS -gt 0 ]; then
+            echo "⚠️  Validation passed with $WARNINGS warnings"
+            exit 0
+          else
+            echo "✅ All ${{ inputs.content_type }} pass validation"
+            exit 0
+          fi
+
+      - name: Comment on PR with results
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const contentType = '${{ inputs.content_type }}';
+            const requireDesc = '${{ inputs.require_description }}' === 'true';
+
+            let body = `❌ Content validation failed for ${contentType}. Check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.\n\nCommon issues:\n- Missing \`title\` or \`date\` fields`;
+
+            if (requireDesc) {
+              body += '\n- Missing `description` field (required for SEO and social sharing)';
+              body += '\n- Description too short (<50 chars) or too long (>160 chars)';
+            }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });

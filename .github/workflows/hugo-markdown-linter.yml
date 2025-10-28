@@ -1,0 +1,45 @@
+name: Hugo Markdown Linter
+
+on:
+  workflow_call:
+    inputs:
+      content_path:
+        description: 'Path to content directory to check'
+        required: false
+        type: string
+        default: 'content/'
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install markdownlint-cli2
+        run: npm install -g markdownlint-cli2
+
+      - name: Check for Obsidian wikilinks
+        run: |
+          if grep -rn --include="*.md" '\[\[.*\]\]' ${{ inputs.content_path }}; then
+            echo "❌ Found Obsidian wikilinks. Convert to standard markdown links: [text](url)"
+            exit 1
+          fi
+
+      - name: Check for hardcoded smart punctuation
+        run: |
+          # Pattern: en dash (–), em dash (—), curly quotes ('')("")，ellipsis (…)
+          PATTERN=$(printf '[–—\xe2\x80\x98\xe2\x80\x99\xe2\x80\x9c\xe2\x80\x9d\xe2\x80\xa6]')
+          if grep -rn --include="*.md" "$PATTERN" ${{ inputs.content_path }}; then
+            echo "❌ Found hardcoded smart punctuation. Use -- for en dash, --- for em dash, straight quotes, and ... for ellipsis. Let Hugo convert them."
+            exit 1
+          fi
+
+      - name: Lint markdown files
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#CLAUDE.md" "#README.md"

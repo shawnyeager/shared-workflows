@@ -1,0 +1,40 @@
+name: Hugo Link Checker
+
+on:
+  workflow_call:
+    inputs:
+      content_path:
+        description: 'Path to content directory'
+        required: false
+        type: string
+        default: 'content/**/*.md'
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check links in markdown files
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Accept 200-299 (success) and 403 (sites that block bots but work for users)
+          args: --verbose --no-progress --accept '200..299,403' '${{ inputs.content_path }}'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Broken links detected',
+              body: 'The link checker found broken links. Check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.',
+              labels: ['maintenance', 'links']
+            })
