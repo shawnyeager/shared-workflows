@@ -21,8 +21,8 @@ jobs:
         uses: lycheeverse/lychee-action@v2
         with:
           # Accept 200-299 (success) and 403 (sites that block bots but work for users)
-          # Timeout 30s with 2 retries to reduce false positives from transient network issues
-          args: --verbose --no-progress --timeout 30 --max-retries 2 --accept '200..299,403' '${{ inputs.content_path }}'
+          # Timeout 15s with 2 retries to reduce false positives from transient network issues
+          args: --verbose --no-progress --timeout 15 --max-retries 2 --accept '200..299,403' '${{ inputs.content_path }}'
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
