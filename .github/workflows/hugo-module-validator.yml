@@ -1,0 +1,51 @@
+name: Hugo Module Validator
+
+on:
+  workflow_call:
+    inputs:
+      module_path:
+        required: true
+        type: string
+        description: 'Module path to validate (e.g., github.com/shawnyeager/tangerine-theme)'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate go.mod exists
+        run: |
+          if [ ! -f go.mod ]; then
+            echo "::error::go.mod not found in repository root"
+            exit 1
+          fi
+
+      - name: Validate module requirement
+        run: |
+          MODULE_PATH="${{ inputs.module_path }}"
+
+          if ! grep -q "require $MODULE_PATH" go.mod; then
+            echo "::error::go.mod missing require statement for $MODULE_PATH"
+            echo ""
+            echo "This will cause production builds to fail on Netlify."
+            echo ""
+            echo "The hugo.work file makes the require redundant locally, but"
+            echo "production builds need the explicit requirement in go.mod."
+            echo ""
+            echo "Fix with: hugo mod get $MODULE_PATH@vX.Y.Z"
+            exit 1
+          fi
+
+          VERSION=$(grep "$MODULE_PATH" go.mod | awk '{print $2}')
+          echo "✓ Found module requirement: $MODULE_PATH $VERSION"
+          echo "module_version=$VERSION" >> $GITHUB_OUTPUT
+        id: validate
+
+      - name: Summary
+        run: |
+          echo "### Hugo Module Validation ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Module:** \`${{ inputs.module_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.validate.outputs.module_version }}\`" >> $GITHUB_STEP_SUMMARY
