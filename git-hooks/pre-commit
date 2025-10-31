@@ -28,9 +28,18 @@ FIXED=false
 # - MD023: Indented headings
 # - MD047: Missing trailing newline
 # - Plus 25+ other fixable rules
-if command -v markdownlint-cli2 &> /dev/null; then
-  echo "   📋 Running markdownlint-cli2 --fix..."
-  for file in $STAGED_MD_FILES; do
+if ! command -v markdownlint-cli2 &> /dev/null; then
+  echo ""
+  echo "❌ ERROR: markdownlint-cli2 not installed!"
+  echo ""
+  echo "   Install with: npm install -g markdownlint-cli2"
+  echo "   Or run setup: ./scripts/setup.sh"
+  echo ""
+  exit 1
+fi
+
+echo "   📋 Running markdownlint-cli2 --fix..."
+for file in $STAGED_MD_FILES; do
     # Skip CLAUDE.md and README.md (same as GitHub Action)
     if [[ "$file" == "CLAUDE.md" || "$file" == "README.md" ]]; then
       continue
@@ -43,8 +52,7 @@ if command -v markdownlint-cli2 &> /dev/null; then
       fi
     fi
   done
-  echo ""
-fi
+echo ""
 
 # Step 2: Fix smart punctuation (markdownlint doesn't have rules for this)
 echo "   ✨ Fixing smart punctuation..."
@@ -133,18 +141,18 @@ if git diff --cached --name-only | grep -q "^go.mod$"; then
   echo "🔍 Validating Hugo module configuration..."
   echo ""
 
-  if ! grep -q "require github.com/shawnyeager/tangerine-theme" go.mod; then
-    echo ""
-    echo "❌ ERROR: go.mod is missing theme require statement!"
-    echo ""
-    echo "   This is required for Netlify builds. The hugo.work file makes it"
-    echo "   redundant locally, but production needs the explicit requirement."
-    echo ""
-    echo "   Fix with:"
-    echo "   hugo mod get github.com/shawnyeager/tangerine-theme@v1.9.3"
-    echo ""
-    exit 1
-  fi
+   if ! grep -q "require github.com/shawnyeager/tangerine-theme" go.mod; then
+     echo ""
+     echo "❌ ERROR: go.mod is missing theme require statement!"
+     echo ""
+     echo "   This is required for Netlify builds. The hugo.work file makes it"
+     echo "   redundant locally, but production needs the explicit requirement."
+     echo ""
+     echo "   Fix with:"
+     echo "   hugo mod get github.com/shawnyeager/tangerine-theme@latest"
+     echo ""
+     exit 1
+   fi
 
   echo "   ✅ Hugo module configuration valid"
   echo ""
