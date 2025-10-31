@@ -22,8 +22,8 @@ jobs:
         with:
           # Accept 2xx (success), 3xx (redirects), 403 (bot blocking), 429 (rate limiting)
           # Redirects (301/302/307/308) are valid - your site's responsibility ends at the redirect
-          # Timeout 15s with 2 retries to reduce false positives from transient network issues
-          args: --verbose --no-progress --timeout 15 --max-retries 2 --accept '200..=299,301,302,307,308,403,429' '${{ inputs.content_path }}'
+          # Timeout 30s with 5 retries to handle transient network issues (connection resets, etc.)
+          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept '200..=299,301,302,307,308,403,429' '${{ inputs.content_path }}'
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
