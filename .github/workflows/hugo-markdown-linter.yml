@@ -36,8 +36,35 @@ jobs:
         run: |
           # Pattern: en dash (–), em dash (—), curly quotes ('')("")，ellipsis (…)
           PATTERN=$(printf '[–—\xe2\x80\x98\xe2\x80\x99\xe2\x80\x9c\xe2\x80\x9d\xe2\x80\xa6]')
-          if grep -rn --include="*.md" "$PATTERN" ${{ inputs.content_path }}; then
-            echo "❌ Found hardcoded smart punctuation. Use -- for en dash, --- for em dash, straight quotes, and ... for ellipsis. Let Hugo convert them."
+          FOUND=false
+
+          # Find all markdown files in content path
+          while IFS= read -r file; do
+            # Extract body content only (skip YAML frontmatter between --- delimiters)
+            # awk script: skip from first --- to second ---, then print everything after
+            BODY=$(awk '
+              BEGIN { in_frontmatter=0; frontmatter_count=0 }
+              /^---$/ {
+                frontmatter_count++
+                if (frontmatter_count == 1) { in_frontmatter=1; next }
+                if (frontmatter_count == 2) { in_frontmatter=0; next }
+              }
+              in_frontmatter { next }
+              frontmatter_count >= 2 { print }
+            ' "$file")
+
+            # Check body content for smart punctuation
+            if echo "$BODY" | grep -n "$PATTERN"; then
+              echo "❌ Found hardcoded smart punctuation in $file (body content only)"
+              FOUND=true
+            fi
+          done < <(find ${{ inputs.content_path }} -name "*.md" -type f)
+
+          if [ "$FOUND" = true ]; then
+            echo ""
+            echo "❌ Found hardcoded smart punctuation in markdown body content."
+            echo "   Note: Frontmatter is excluded from this check (Hugo doesn't process markdown in frontmatter)."
+            echo "   Use -- for en dash, --- for em dash, straight quotes, and ... for ellipsis. Let Hugo convert them."
             exit 1
           fi
 
