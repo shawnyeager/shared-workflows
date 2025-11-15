@@ -1,0 +1,69 @@
+name: Hugo Image Validator
+
+on:
+  workflow_call:
+    inputs:
+      content_path:
+        description: 'Path to content directory'
+        required: false
+        type: string
+        default: 'content/'
+
+jobs:
+  validate-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate image alt text
+        run: |
+          echo "🔍 Checking for images without alt text..."
+
+          # Find all markdown files
+          MARKDOWN_FILES=$(find ${{ inputs.content_path }} -type f -name "*.md")
+
+          # Track violations
+          VIOLATIONS=0
+
+          for file in $MARKDOWN_FILES; do
+            # Check for markdown image syntax without alt text: ![](url)
+            if grep -Pn '!\[\]\([^)]+\)' "$file"; then
+              echo "❌ $file: Found image(s) without alt text"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+
+            # Check for Hugo image shortcode without alt parameter
+            # {{< image src="..." >}} (missing alt="...")
+            if grep -Pn '\{\{<\s*image\s+[^}]*src="[^"]+"\s*(?!.*alt=)[^}]*>\}\}' "$file"; then
+              echo "⚠️  $file: Found image shortcode(s) potentially missing alt parameter"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo ""
+            echo "❌ Found $VIOLATIONS file(s) with images missing alt text"
+            echo ""
+            echo "📝 Alt text is required for:"
+            echo "   - Accessibility (screen readers)"
+            echo "   - SEO"
+            echo "   - When images fail to load"
+            echo ""
+            echo "Fix by adding descriptive alt text:"
+            echo "   - Markdown: ![Descriptive alt text](image.jpg)"
+            echo "   - Shortcode: {{< image src=\"image.jpg\" alt=\"Descriptive alt text\" >}}"
+            exit 1
+          fi
+
+          echo "✅ All images have alt text"
+
+      - name: Document alt text requirement
+        if: success()
+        run: |
+          echo "✅ Image validation passed"
+          echo ""
+          echo "📚 Best practices for alt text:"
+          echo "   - Be descriptive and concise"
+          echo "   - Describe what the image shows, not just 'image of...'"
+          echo "   - For decorative images, use empty alt=\"\" (intentional)"
+          echo "   - For complex diagrams, consider longer descriptions"
