@@ -31,9 +31,6 @@ jobs:
             echo ""
             echo "This will cause production builds to fail on Netlify."
             echo ""
-            echo "The hugo.work file makes the require redundant locally, but"
-            echo "production builds need the explicit requirement in go.mod."
-            echo ""
             echo "Fix with: hugo mod get $MODULE_PATH@vX.Y.Z"
             exit 1
           fi
