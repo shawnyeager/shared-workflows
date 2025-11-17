@@ -67,21 +67,22 @@ Listens for theme update events and automatically updates go.mod with latest the
 - Manual trigger via `workflow_dispatch`
 
 **Actions:**
-1. Configures Git for private module access
-2. Runs `hugo mod get -u github.com/shawnyeager/tangerine-theme`
-3. Checks for go.mod changes
-4. Auto-commits if changes detected: `"chore: auto-update tangerine-theme module"`
-5. Pushes to master (triggers Netlify deployment)
+1. Runs `hugo mod get github.com/shawnyeager/tangerine-theme@master`
+2. Removes any accidental replace directives (safety net)
+3. Normalizes go.mod version format
+4. Checks for go.mod changes
+5. Auto-commits if changes detected: `"chore: auto-update tangerine-theme module"`
+6. Pushes to master (triggers Netlify deployment)
 
 **Required secrets:**
-- `THEME_ACCESS_TOKEN` - GitHub PAT with repo access to private theme
+- `SITES_UPDATE_TOKEN` - GitHub PAT for triggering workflows across repos
 
 **Required permissions:**
 - `contents: write` (to commit and push)
 
 **Result:** Theme updates are now a 2-step process (down from 9 manual steps):
 1. Edit theme and test locally
-2. Commit, tag, and push theme → sites auto-update via GitHub Actions
+2. Commit and push theme to master → sites auto-update via GitHub Actions
 
 ## Usage
 
