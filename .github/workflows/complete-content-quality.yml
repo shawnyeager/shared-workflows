@@ -1,0 +1,39 @@
+name: Complete Content Quality Check
+
+on:
+  workflow_call:
+    inputs:
+      site_type:
+        description: 'Site type: essays or notes'
+        required: true
+        type: string
+
+jobs:
+  link-check:
+    uses: shawnyeager/shared-workflows/.github/workflows/hugo-link-checker.yml@master
+    permissions:
+      issues: write
+    with:
+      content_path: 'content/**/*.md'
+
+  markdown-lint:
+    uses: shawnyeager/shared-workflows/.github/workflows/hugo-markdown-linter.yml@master
+    with:
+      content_path: ${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
+
+  content-validator:
+    uses: shawnyeager/shared-workflows/.github/workflows/hugo-content-validator.yml@master
+    with:
+      content_path: ${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
+      content_type: ${{ inputs.site_type }}
+      require_description: ${{ inputs.site_type == 'essays' }}
+
+  module-validator:
+    uses: shawnyeager/shared-workflows/.github/workflows/hugo-module-validator.yml@master
+    with:
+      module_path: 'github.com/shawnyeager/tangerine-theme'
+
+  image-validator:
+    uses: shawnyeager/shared-workflows/.github/workflows/hugo-image-validator.yml@master
+    with:
+      content_path: 'content/'
