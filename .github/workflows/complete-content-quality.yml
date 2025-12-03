@@ -12,17 +12,25 @@ jobs:
   link-check:
     uses: shawnyeager/shared-workflows/.github/workflows/hugo-link-checker.yml@master
     permissions:
+      contents: read
       issues: write
+    secrets: inherit
     with:
       content_path: 'content/**/*.md'
 
   markdown-lint:
     uses: shawnyeager/shared-workflows/.github/workflows/hugo-markdown-linter.yml@master
+    permissions:
+      contents: read
+    secrets: inherit
     with:
       content_path: ${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
 
   content-validator:
     uses: shawnyeager/shared-workflows/.github/workflows/hugo-content-validator.yml@master
+    permissions:
+      contents: read
+    secrets: inherit
     with:
       content_path: ${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
       content_type: ${{ inputs.site_type }}
@@ -30,10 +38,16 @@ jobs:
 
   module-validator:
     uses: shawnyeager/shared-workflows/.github/workflows/hugo-module-validator.yml@master
+    permissions:
+      contents: read
+    secrets: inherit
     with:
       module_path: 'github.com/shawnyeager/tangerine-theme'
 
   image-validator:
     uses: shawnyeager/shared-workflows/.github/workflows/hugo-image-validator.yml@master
+    permissions:
+      contents: read
+    secrets: inherit
     with:
       content_path: 'content/'
