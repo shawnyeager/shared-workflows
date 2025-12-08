@@ -37,52 +37,45 @@ Validates Hugo Module dependencies to prevent broken Netlify builds.
 **Inputs:**
 - None (validates go.mod contains required theme dependency)
 
-### Theme Auto-Update Workflows
+### Theme Auto-Update Workflows (PR-Based)
 
-These workflows automate theme updates across both sites when the theme is pushed.
+Both sites use a **PR-based workflow** for theme updates to save Netlify credits and enable preview review.
 
-#### tangerine-theme: notify-sites.yml
-Triggers when theme is pushed to master. Sends `repository_dispatch` events to both site repos.
+#### auto-theme-update-pr.yml
+Creates a Pull Request when theme updates are available, allowing preview review before production deploy.
 
-**Workflow location:** `tangerine-theme/.github/workflows/notify-sites.yml`
-
-**Triggers on:**
-- Push to `master` branch
-- Changes to `layouts/**`, `static/**`, or `theme.toml`
-
-**Sends events to:**
-- `shawnyeager/shawnyeager-com` (event-type: `theme-updated`)
-- `shawnyeager/shawnyeager-notes` (event-type: `theme-updated`)
-
-**Required secrets:**
-- `SITES_UPDATE_TOKEN` - GitHub PAT with repo access
-
-#### shawnyeager-com/shawnyeager-notes: auto-theme-update.yml
-Listens for theme update events and automatically updates go.mod with latest theme version.
-
-**Workflow location:** Both `.github/workflows/auto-theme-update.yml` in each site repo
+**Workflow location:** `.github/workflows/auto-theme-update-pr.yml` in each site repo
 
 **Triggers on:**
-- `repository_dispatch` event-type: `theme-updated`
-- Manual trigger via `workflow_dispatch`
+- Manual trigger via `workflow_dispatch` (preferred)
+- Daily cron at 9am UTC (fallback)
 
 **Actions:**
-1. Runs `hugo mod get github.com/shawnyeager/tangerine-theme@master`
-2. Removes any accidental replace directives (safety net)
-3. Normalizes go.mod version format
-4. Checks for go.mod changes
-5. Auto-commits if changes detected: `"chore: auto-update tangerine-theme module"`
-6. Pushes to master (triggers Netlify deployment)
+1. Checks current theme version in `go.mod`
+2. Runs `hugo mod get -u github.com/shawnyeager/tangerine-theme`
+3. If updated, creates Pull Request with `theme-update` label
+4. Netlify builds FREE deploy preview for the PR
+5. Review preview, merge when satisfied
+6. Production build only happens on merge (15 credits)
 
 **Required secrets:**
-- `SITES_UPDATE_TOKEN` - GitHub PAT for triggering workflows across repos
+- `GH_PAT` - GitHub PAT with `contents:write` and `pull-requests:write`
 
 **Required permissions:**
-- `contents: write` (to commit and push)
+- `contents: write` (to commit go.mod changes)
+- `pull-requests: write` (to create PR)
 
-**Result:** Theme updates are now a 2-step process (down from 9 manual steps):
-1. Edit theme and test locally
-2. Commit and push theme to master → sites auto-update via GitHub Actions
+**Workflow for theme updates:**
+1. Push theme changes to master branch
+2. Trigger workflow manually: `gh workflow run auto-theme-update-pr.yml --repo shawnyeager/shawnyeager-com`
+3. Wait for PR to be created (~2 min)
+4. Review deploy preview URL in PR
+5. Merge when satisfied → triggers production build
+
+**Cost savings:**
+- Deploy previews: FREE (0 credits)
+- Multiple theme commits can accumulate in one PR
+- Only pay for final production build (15 credits per site)
 
 ## Usage
 
