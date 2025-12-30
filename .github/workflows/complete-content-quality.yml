@@ -9,45 +9,107 @@ on:
         type: string
 
 jobs:
-  link-check:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-link-checker.yml@master
-    permissions:
-      contents: read
-      issues: write
-    secrets: inherit
-    with:
-      content_path: 'content/**/*.md'
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  markdown-lint:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-markdown-linter.yml@master
-    permissions:
-      contents: read
-    secrets: inherit
-    with:
-      content_path: ${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
+      # --- Link Check ---
+      - name: Check links in markdown files
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept '200..=299,301,302,307,308,403,429,503' --exclude 'pocketcasts\.com' --exclude 'signal\.me' 'content/**/*.md'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  content-validator:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-content-validator.yml@master
-    permissions:
-      contents: read
-    secrets: inherit
-    with:
-      content_path: ${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
-      content_type: ${{ inputs.site_type }}
-      require_description: ${{ inputs.site_type == 'essays' }}
+      # --- Markdown Lint ---
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-  module-validator:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-module-validator.yml@master
-    permissions:
-      contents: read
-    secrets: inherit
-    with:
-      module_path: 'github.com/shawnyeager/tangerine-theme'
+      - name: Install markdownlint-cli2
+        run: npm install -g markdownlint-cli2
 
-  image-validator:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-image-validator.yml@master
-    permissions:
-      contents: read
-    secrets: inherit
-    with:
-      content_path: 'content/'
+      - name: Check for Obsidian wikilinks
+        run: |
+          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
+          if grep -rn --include="*.md" '\[\[.*\]\]' $CONTENT_PATH; then
+            echo "::error::Found Obsidian wikilinks. Convert to standard markdown links."
+            exit 1
+          fi
+
+      - name: Check for hardcoded smart punctuation
+        run: |
+          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
+          PATTERN=$(printf '[–—\xe2\x80\x98\xe2\x80\x99\xe2\x80\x9c\xe2\x80\x9d\xe2\x80\xa6]')
+          FOUND=false
+          while IFS= read -r file; do
+            BODY=$(awk 'BEGIN{i=0;f=0} /^---$/{i++;if(i==2)f=1;next} f{print}' "$file")
+            if echo "$BODY" | grep -n "$PATTERN"; then
+              echo "::error::Found hardcoded smart punctuation in $file"
+              FOUND=true
+            fi
+          done < <(find $CONTENT_PATH -name "*.md" -type f)
+          if [ "$FOUND" = true ]; then exit 1; fi
+
+      - name: Lint markdown files
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#CLAUDE.md" "#README.md"
+
+      # --- Content Validator ---
+      - name: Validate frontmatter
+        run: |
+          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
+          REQUIRE_DESC=${{ inputs.site_type == 'essays' && 'true' || 'false' }}
+          ERRORS=0
+
+          while IFS= read -r -d '' file; do
+            [[ "$file" == *"_index.md" ]] && continue
+            FRONTMATTER=$(awk '/^---$/{i++}i==1' "$file" | sed '1d;$d')
+
+            if ! echo "$FRONTMATTER" | grep -q "^title:"; then
+              echo "::error file=$file::Missing title"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if ! echo "$FRONTMATTER" | grep -q "^date:"; then
+              echo "::error file=$file::Missing date"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if [[ "$REQUIRE_DESC" == "true" ]] && ! echo "$FRONTMATTER" | grep -q "^description:"; then
+              echo "::error file=$file::Missing description"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done < <(find $CONTENT_PATH -name "*.md" -type f -print0 2>/dev/null)
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::Validation failed with $ERRORS errors"
+            exit 1
+          fi
+
+      # --- Module Validator ---
+      - name: Validate Hugo module
+        run: |
+          if [ ! -f go.mod ]; then
+            echo "::error::go.mod not found"
+            exit 1
+          fi
+          if ! grep -q "require github.com/shawnyeager/tangerine-theme" go.mod; then
+            echo "::error::go.mod missing theme requirement"
+            exit 1
+          fi
+          echo "Module validation passed"
+
+      # --- Image Validator ---
+      - name: Validate image alt text
+        run: |
+          VIOLATIONS=0
+          for file in $(find content/ -type f -name "*.md"); do
+            if grep -Pn '!\[\]\([^)]+\)' "$file"; then
+              echo "::error file=$file::Image missing alt text"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+          if [ $VIOLATIONS -gt 0 ]; then exit 1; fi
+          echo "Image validation passed"
