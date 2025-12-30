@@ -4,114 +4,89 @@ Reusable GitHub Actions workflows for Hugo sites (shawnyeager.com and notes.shaw
 
 ## Workflows
 
-### Content Quality Workflows
+### Content Quality (Consolidated)
 
-These workflows validate content before/after commits.
+#### complete-content-quality.yml
 
-#### hugo-link-checker.yml
-Checks for broken links in markdown files using lychee.
+**Primary workflow.** Runs all content quality checks in a single job to minimize GitHub Actions minutes.
 
-**Inputs:**
-- `content_path` (optional): Path to content directory. Default: `content/**/*.md`
-
-#### hugo-markdown-linter.yml
-Lints markdown files and checks for:
-- Obsidian wikilinks (`[[...]]`)
-- Hardcoded smart punctuation (curly quotes, em/en dashes, ellipsis)
-- Markdown formatting issues
-
-**Inputs:**
-- `content_path` (optional): Path to content directory. Default: `content/`
-
-#### hugo-content-validator.yml
-Validates frontmatter in Hugo content files.
+**Checks included:**
+- Link validation (lychee)
+- Markdown linting
+- Obsidian wikilink detection
+- Smart punctuation detection
+- Frontmatter validation
+- Hugo module validation
+- Image alt text validation
 
 **Inputs:**
-- `content_path` (optional): Path to content directory. Default: `content/essays`
-- `content_type` (optional): Type of content (essays or notes). Default: `essays`
-- `require_description` (optional): Whether description field is required. Default: `true`
+- `site_type` (required): `"essays"` or `"notes"` - determines content path and validation rules
 
-#### hugo-module-validator.yml
-Validates Hugo Module dependencies to prevent broken Netlify builds.
-
-**Inputs:**
-- None (validates go.mod contains required theme dependency)
-
-### Theme Auto-Update Workflows (PR-Based)
-
-Both sites use a **PR-based workflow** for theme updates to save Netlify credits and enable preview review.
-
-#### auto-theme-update-pr.yml
-Creates a Pull Request when theme updates are available, allowing preview review before production deploy.
-
-**Workflow location:** `.github/workflows/auto-theme-update-pr.yml` in each site repo
-
-**Triggers on:**
-- Manual trigger via `workflow_dispatch` (preferred)
-- Daily cron at 9am UTC (fallback)
-
-**Actions:**
-1. Checks current theme version in `go.mod`
-2. Runs `hugo mod get -u github.com/shawnyeager/tangerine-theme`
-3. If updated, creates Pull Request with `theme-update` label
-4. Netlify builds FREE deploy preview for the PR
-5. Review preview, merge when satisfied
-6. Production build only happens on merge (15 credits)
-
-**Required secrets:**
-- `GH_PAT` - GitHub PAT with `contents:write` and `pull-requests:write`
-
-**Required permissions:**
-- `contents: write` (to commit go.mod changes)
-- `pull-requests: write` (to create PR)
-
-**Workflow for theme updates:**
-1. Push theme changes to master branch
-2. Trigger workflow manually: `gh workflow run auto-theme-update-pr.yml --repo shawnyeager/shawnyeager-com`
-3. Wait for PR to be created (~2 min)
-4. Review deploy preview URL in PR
-5. Merge when satisfied → triggers production build
-
-**Cost savings:**
-- Deploy previews: FREE (0 credits)
-- Multiple theme commits can accumulate in one PR
-- Only pay for final production build (15 credits per site)
-
-## Usage
-
-In your repository's workflow file:
-
+**Usage:**
 ```yaml
 name: Content Quality
 
 on:
-  pull_request:
-    paths:
-      - 'content/**/*.md'
   push:
-    branches:
-      - master
+    branches: [master]
     paths:
       - 'content/**/*.md'
+      - '*.md'
+      - 'go.mod'
+      - 'go.sum'
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly on Mondays
+  workflow_dispatch:
 
 jobs:
-  link-check:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-link-checker.yml@main
-
-  markdown-lint:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-markdown-linter.yml@main
-
-  content-validator:
-    uses: shawnyeager/shared-workflows/.github/workflows/hugo-content-validator.yml@main
+  quality-check:
+    uses: shawnyeager/shared-workflows/.github/workflows/complete-content-quality.yml@master
+    permissions:
+      contents: read
+      issues: write
+    secrets: inherit
     with:
-      content_path: 'content/essays'
-      content_type: 'essays'
-      require_description: true
+      site_type: 'essays'  # or 'notes'
 ```
+
+**Note:** Sites run this on master push only (not PRs) to save Actions minutes.
+
+### Individual Workflows (Available)
+
+These standalone workflows are still available if needed for specific use cases:
+
+| Workflow | Purpose |
+|----------|---------|
+| `hugo-link-checker.yml` | Broken link detection |
+| `hugo-markdown-linter.yml` | Markdown linting + wikilink/punctuation checks |
+| `hugo-content-validator.yml` | Frontmatter validation |
+| `hugo-module-validator.yml` | go.mod theme dependency check |
+| `hugo-image-validator.yml` | Image alt text validation |
+
+### Theme Auto-Update (PR-Based)
+
+#### auto-theme-update-pr.yml
+
+Creates PRs when theme updates are available. Located in each site repo (not here).
+
+**Triggers:**
+- Automatically when theme repo pushes to master (via repository dispatch)
+- Daily cron at 9am UTC (fallback)
+- Manual trigger via `workflow_dispatch`
+
+**Flow:**
+1. Push theme changes to master
+2. Theme repo triggers site workflows automatically (~3 min)
+3. PRs created with `theme-update` label
+4. Netlify builds FREE deploy preview
+5. Review preview, merge when ready
+6. Production build on merge (15 credits)
+
+**Cost savings:** Deploy previews are free. Only pay for production builds.
 
 ## Maintenance
 
-These workflows are used by:
+Used by:
 - [shawnyeager.com](https://github.com/shawnyeager/shawnyeager-com)
 - [notes.shawnyeager.com](https://github.com/shawnyeager/shawnyeager-notes)
 
