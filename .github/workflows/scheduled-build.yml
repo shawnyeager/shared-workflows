@@ -1,0 +1,27 @@
+name: Scheduled Netlify Build
+
+on:
+  workflow_call:
+    inputs:
+      netlify_site_name:
+        required: true
+        type: string
+        description: 'Netlify site name for status URL'
+    secrets:
+      NETLIFY_BUILD_HOOK_URL:
+        required: true
+        description: 'Netlify build hook URL'
+
+jobs:
+  trigger-netlify-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Netlify Deploy
+        run: |
+          curl -X POST -d '{}' ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
+
+      - name: Build triggered
+        run: |
+          echo "Netlify build triggered successfully"
+          echo "Check build status at: https://app.netlify.com/sites/${{ inputs.netlify_site_name }}/deploys"

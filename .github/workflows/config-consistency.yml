@@ -1,0 +1,47 @@
+name: Configuration Consistency
+
+on:
+  workflow_call:
+    inputs:
+      theme_module:
+        required: false
+        type: string
+        default: 'github.com/shawnyeager/tangerine-theme'
+        description: 'Theme module path to verify'
+
+jobs:
+  version-alignment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Go version consistency
+        run: |
+          GO_MOD_VERSION=$(grep "^go " go.mod | awk '{print $2}')
+          NETLIFY_GO_VERSION=$(grep "^  GO_VERSION = " netlify.toml | awk -F'"' '{print $2}')
+
+          echo "Checking Go version alignment..."
+          echo "  go.mod: $GO_MOD_VERSION"
+          echo "  netlify.toml: $NETLIFY_GO_VERSION"
+
+          if [ "$GO_MOD_VERSION" != "$NETLIFY_GO_VERSION" ]; then
+            echo ""
+            echo "::error::Go versions don't match - go.mod: $GO_MOD_VERSION, netlify.toml: $NETLIFY_GO_VERSION"
+            exit 1
+          fi
+
+          echo "Go versions match: $GO_MOD_VERSION"
+
+      - name: Verify theme require statement
+        run: |
+          THEME="${{ inputs.theme_module }}"
+          echo "Checking theme module configuration..."
+
+          if ! grep -q "require $THEME" go.mod; then
+            echo ""
+            echo "::error::go.mod missing theme require statement for $THEME"
+            exit 1
+          fi
+
+          THEME_VERSION=$(grep "require $THEME" go.mod | awk '{print $3}')
+          echo "Theme require statement found: $THEME_VERSION"
