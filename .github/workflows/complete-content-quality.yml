@@ -28,44 +28,45 @@ jobs:
         run: |
           ERRORS=0
 
-          # Extract all url="..." values from shortcodes in content files
-          while IFS=: read -r file match; do
-            # Extract the URL value
-            url=$(echo "$match" | grep -oP 'url="[^"]*"' | sed 's/url="//;s/"$//')
-            [ -z "$url" ] && continue
+          # Process each file individually to handle multiple URLs per line
+          while IFS= read -r -d '' file; do
+            # Extract each url="..." value separately
+            while IFS= read -r url; do
+              [ -z "$url" ] && continue
 
-            # Skip external URLs
-            [[ "$url" =~ ^https?:// ]] && continue
+              # Skip external URLs
+              [[ "$url" =~ ^https?:// ]] && continue
 
-            # Flag relative URLs (no leading /) as errors - they're ambiguous
-            if [[ ! "$url" =~ ^/ ]]; then
-              echo "::error file=$file::Relative shortcode URL '$url' - use absolute path starting with /"
+              # Flag relative URLs (no leading /) as errors - they're ambiguous
+              if [[ ! "$url" =~ ^/ ]]; then
+                echo "::error file=$file::Relative shortcode URL '$url' - use absolute path starting with /"
+                ERRORS=$((ERRORS + 1))
+                continue
+              fi
+
+              # Check if internal URL resolves to content, static file, or redirect
+              path="${url#/}"  # Remove leading slash
+              path="${path%/}" # Remove trailing slash
+
+              # Check content (with or without .md extension)
+              if [ -f "content/${path}.md" ] || [ -f "content/${path}/_index.md" ] || [ -f "content/${path}" ]; then
+                continue
+              fi
+
+              # Check static files
+              if [ -f "static/${path}" ]; then
+                continue
+              fi
+
+              # Check _redirects file
+              if [ -f "static/_redirects" ] && grep -q "^${url}[[:space:]]" "static/_redirects"; then
+                continue
+              fi
+
+              echo "::error file=$file::Shortcode URL '$url' not found in content, static, or redirects"
               ERRORS=$((ERRORS + 1))
-              continue
-            fi
-
-            # Check if internal URL resolves to content, static file, or redirect
-            path="${url#/}"  # Remove leading slash
-            path="${path%/}" # Remove trailing slash
-
-            # Check content (with or without .md extension)
-            if [ -f "content/${path}.md" ] || [ -f "content/${path}/_index.md" ] || [ -f "content/${path}" ]; then
-              continue
-            fi
-
-            # Check static files
-            if [ -f "static/${path}" ]; then
-              continue
-            fi
-
-            # Check _redirects file
-            if [ -f "static/_redirects" ] && grep -q "^${url}[[:space:]]" "static/_redirects"; then
-              continue
-            fi
-
-            echo "::error file=$file::Shortcode URL '$url' not found in content, static, or redirects"
-            ERRORS=$((ERRORS + 1))
-          done < <(grep -rn --include="*.md" '{{<.*url="[^"]*"' content/ 2>/dev/null || true)
+            done < <(grep -oP 'url="\K[^"]+' "$file" 2>/dev/null || true)
+          done < <(find content -name "*.md" -type f -print0 2>/dev/null)
 
           if [ $ERRORS -gt 0 ]; then
             echo "::error::Shortcode URL validation failed with $ERRORS errors"
