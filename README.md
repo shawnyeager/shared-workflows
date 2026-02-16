@@ -1,6 +1,6 @@
 # Shared GitHub Actions Workflows
 
-Reusable GitHub Actions workflows for Hugo sites (shawnyeager.com and notes.shawnyeager.com).
+Reusable GitHub Actions workflows for Hugo sites (shawnyeager.com).
 
 ## Workflows
 
@@ -88,6 +88,5 @@ Creates PRs when theme updates are available. Located in each site repo (not her
 
 Used by:
 - [shawnyeager.com](https://github.com/shawnyeager/shawnyeager-com)
-- [notes.shawnyeager.com](https://github.com/shawnyeager/shawnyeager-notes)
 
 Update once, benefit everywhere.
