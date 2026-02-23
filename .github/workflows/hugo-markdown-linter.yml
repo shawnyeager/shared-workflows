@@ -69,4 +69,4 @@ jobs:
           fi
 
       - name: Lint markdown files
-        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#CLAUDE.md" "#README.md"
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#docs" "#CLAUDE.md" "#README.md"

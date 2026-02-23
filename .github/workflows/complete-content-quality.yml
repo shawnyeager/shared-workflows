@@ -106,7 +106,7 @@ jobs:
           if [ "$FOUND" = true ]; then exit 1; fi
 
       - name: Lint markdown files
-        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#CLAUDE.md" "#README.md"
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#docs" "#CLAUDE.md" "#README.md"
 
       # --- Content Validator ---
       - name: Validate frontmatter
