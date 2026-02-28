@@ -25,7 +25,7 @@ jobs:
           # Timeout 30s with 5 retries to handle transient network issues (connection resets, etc.)
           # Exclude pocketcasts.com - blocks automated requests while allowing browsers
           # Exclude signal.me - aggressive bot blocking causes connection resets
-          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept '200..=299,301,302,307,308,403,429,503' --exclude 'pocketcasts\.com' --exclude 'signal\.me' '${{ inputs.content_path }}'
+          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept 200..=299,301,302,307,308,403,429,503 --exclude pocketcasts\.com --exclude signal\.me --exclude ^/ ${{ inputs.content_path }}
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
