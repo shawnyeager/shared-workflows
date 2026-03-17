@@ -20,6 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout shared scripts
+        uses: actions/checkout@v4
+        with:
+          repository: shawnyeager/shared-workflows
+          path: .shared-workflows
+
       # --- Link Check ---
       - name: Check links in markdown files
         uses: lycheeverse/lychee-action@v2
@@ -30,54 +36,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check shortcode internal URLs
-        run: |
-          ERRORS=0
-
-          # Process each file individually to handle multiple URLs per line
-          while IFS= read -r -d '' file; do
-            # Extract each url="..." value separately
-            while IFS= read -r url; do
-              [ -z "$url" ] && continue
-
-              # Skip external URLs
-              [[ "$url" =~ ^https?:// ]] && continue
-
-              # Flag relative URLs (no leading /) as errors - they're ambiguous
-              if [[ ! "$url" =~ ^/ ]]; then
-                echo "::error file=$file::Relative shortcode URL '$url' - use absolute path starting with /"
-                ERRORS=$((ERRORS + 1))
-                continue
-              fi
-
-              # Check if internal URL resolves to content, static file, or redirect
-              path="${url#/}"  # Remove leading slash
-              path="${path%/}" # Remove trailing slash
-
-              # Check content (with or without .md extension)
-              if [ -f "content/${path}.md" ] || [ -f "content/${path}/_index.md" ] || [ -f "content/${path}" ]; then
-                continue
-              fi
-
-              # Check static files
-              if [ -f "static/${path}" ]; then
-                continue
-              fi
-
-              # Check _redirects file
-              if [ -f "static/_redirects" ] && grep -q "^${url}[[:space:]]" "static/_redirects"; then
-                continue
-              fi
-
-              echo "::error file=$file::Shortcode URL '$url' not found in content, static, or redirects"
-              ERRORS=$((ERRORS + 1))
-            done < <(grep -oP 'url="\K[^"]+' "$file" 2>/dev/null || true)
-          done < <(find content -name "*.md" -type f -print0 2>/dev/null)
-
-          if [ $ERRORS -gt 0 ]; then
-            echo "::error::Shortcode URL validation failed with $ERRORS errors"
-            exit 1
-          fi
-          echo "Shortcode URL validation passed"
+        run: .shared-workflows/scripts/check-shortcode-urls.sh
 
       # --- Markdown Lint ---
       - name: Setup Node.js
@@ -89,59 +48,28 @@ jobs:
         run: npm install -g markdownlint-cli2
 
       - name: Check for Obsidian wikilinks
+        env:
+          CONTENT_PATH: ${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
         run: |
-          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
-          if grep -rn --include="*.md" '\[\[.*\]\]' $CONTENT_PATH; then
+          if grep -rn --include="*.md" '\[\[.*\]\]' "$CONTENT_PATH"; then
             echo "::error::Found Obsidian wikilinks. Convert to standard markdown links."
             exit 1
           fi
 
       - name: Check for hardcoded smart punctuation
-        run: |
-          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
-          PATTERN=$(printf '[–—\xe2\x80\x98\xe2\x80\x99\xe2\x80\x9c\xe2\x80\x9d\xe2\x80\xa6]')
-          FOUND=false
-          while IFS= read -r file; do
-            BODY=$(awk 'BEGIN{i=0;f=0} /^---$/{i++;if(i==2)f=1;next} f{print}' "$file")
-            if echo "$BODY" | grep -n "$PATTERN"; then
-              echo "::error::Found hardcoded smart punctuation in $file"
-              FOUND=true
-            fi
-          done < <(find $CONTENT_PATH -name "*.md" -type f)
-          if [ "$FOUND" = true ]; then exit 1; fi
+        env:
+          CONTENT_PATH: ${{ inputs.site_type == 'essays' && 'content/essays/' || 'content/notes/' }}
+        run: .shared-workflows/scripts/check-smart-punctuation.sh "$CONTENT_PATH"
 
       - name: Lint markdown files
-        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#docs" "#CLAUDE.md" "#README.md"
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#docs" "#CLAUDE.md" "#README.md" "#.shared-workflows"
 
       # --- Content Validator ---
       - name: Validate frontmatter
-        run: |
-          CONTENT_PATH=${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
-          REQUIRE_DESC=${{ inputs.site_type == 'essays' && 'true' || 'false' }}
-          ERRORS=0
-
-          while IFS= read -r -d '' file; do
-            [[ "$file" == *"_index.md" ]] && continue
-            FRONTMATTER=$(awk '/^---$/{i++}i==1' "$file" | sed '1d;$d')
-
-            if ! echo "$FRONTMATTER" | grep -q "^title:"; then
-              echo "::error file=$file::Missing title"
-              ERRORS=$((ERRORS + 1))
-            fi
-            if ! echo "$FRONTMATTER" | grep -q "^date:"; then
-              echo "::error file=$file::Missing date"
-              ERRORS=$((ERRORS + 1))
-            fi
-            if [[ "$REQUIRE_DESC" == "true" ]] && ! echo "$FRONTMATTER" | grep -q "^description:"; then
-              echo "::error file=$file::Missing description"
-              ERRORS=$((ERRORS + 1))
-            fi
-          done < <(find $CONTENT_PATH -name "*.md" -type f -print0 2>/dev/null)
-
-          if [ $ERRORS -gt 0 ]; then
-            echo "::error::Validation failed with $ERRORS errors"
-            exit 1
-          fi
+        env:
+          CONTENT_PATH: ${{ inputs.site_type == 'essays' && 'content/essays' || 'content/notes' }}
+          REQUIRE_DESC: ${{ inputs.site_type == 'essays' && 'true' || 'false' }}
+        run: .shared-workflows/scripts/validate-frontmatter.sh "$CONTENT_PATH" "$REQUIRE_DESC"
 
       # --- Module Validator ---
       - name: Validate Hugo module
@@ -154,17 +82,7 @@ jobs:
             echo "::error::go.mod missing theme requirement"
             exit 1
           fi
-          echo "Module validation passed"
 
       # --- Image Validator ---
       - name: Validate image alt text
-        run: |
-          VIOLATIONS=0
-          for file in $(find content/ -type f -name "*.md"); do
-            if grep -Pn '!\[\]\([^)]+\)' "$file"; then
-              echo "::error file=$file::Image missing alt text"
-              VIOLATIONS=$((VIOLATIONS + 1))
-            fi
-          done
-          if [ $VIOLATIONS -gt 0 ]; then exit 1; fi
-          echo "Image validation passed"
+        run: .shared-workflows/scripts/validate-images.sh
