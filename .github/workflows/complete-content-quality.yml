@@ -30,7 +30,7 @@ jobs:
       - name: Check links in markdown files
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept '200..=299,301,302,307,308,403,429,503' --exclude 'pocketcasts\.com' --exclude 'signal\.me' ${{ inputs.base_url != '' && format('--base {0}', inputs.base_url) || '' }} 'content/**/*.md'
+          args: --verbose --no-progress --timeout 30 --max-retries 5 --accept '200..=299,301,302,307,308,403,429,503' --exclude 'pocketcasts\.com' --exclude 'signal\.me' --exclude 'shawnyeager\.com/signal' ${{ inputs.base_url != '' && format('--base {0}', inputs.base_url) || '' }} 'content/**/*.md'
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
