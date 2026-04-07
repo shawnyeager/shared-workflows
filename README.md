@@ -51,38 +51,17 @@ jobs:
 
 **Note:** Sites run this on master push only (not PRs) to save Actions minutes.
 
-### Individual Workflows (Available)
+### Config Consistency
 
-These standalone workflows are still available if needed for specific use cases:
+#### config-consistency.yml
 
-| Workflow | Purpose |
-|----------|---------|
-| `hugo-link-checker.yml` | Broken link detection |
-| `hugo-markdown-linter.yml` | Markdown linting + wikilink/punctuation checks |
-| `hugo-content-validator.yml` | Frontmatter validation |
-| `hugo-module-validator.yml` | go.mod theme dependency check |
-| `hugo-image-validator.yml` | Image alt text validation |
+Validates Go version alignment between `go.mod` and `netlify.toml`, and verifies the theme `require` statement exists in `go.mod`.
 
-### Theme Auto-Update (PR-Based)
+### Theme Update PR (Manual Use)
 
-#### auto-theme-update-pr.yml
+#### theme-update-pr.yml
 
-Creates PRs when theme updates are available. Located in each site repo (not here).
-
-**Triggers:**
-- Automatically when theme repo pushes to master (via repository dispatch)
-- Daily cron at 9am UTC (fallback)
-- Manual trigger via `workflow_dispatch`
-
-**Flow:**
-1. Push theme changes to master
-2. Theme repo triggers site workflows automatically (~3 min)
-3. PRs created with `theme-update` label
-4. Netlify builds FREE deploy preview
-5. Review preview, merge when ready
-6. Production build on merge (15 credits)
-
-**Cost savings:** Deploy previews are free. Only pay for production builds.
+Reusable workflow for creating theme update PRs. Not called by any cron --- theme PRs are created manually. Available via `workflow_dispatch` if needed as a one-off.
 
 ## Maintenance
 
