@@ -65,7 +65,7 @@ jobs:
         run: .shared-workflows/scripts/check-smart-punctuation.sh "$CONTENT_PATH"
 
       - name: Lint markdown files
-        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#docs" "#CLAUDE.md" "#README.md" "#.shared-workflows"
+        run: markdownlint-cli2 "**/*.md" "#node_modules" "#public" "#lychee" "#docs" "#.agents" "#CLAUDE.md" "#README.md" "#.shared-workflows"
 
       # --- Content Validator ---
       - name: Validate frontmatter
