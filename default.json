@@ -8,6 +8,7 @@
   ],
   "schedule": ["before 6am on monday"],
   "timezone": "UTC",
+  "baseBranches": ["$default"],
   "major": {
     "enabled": false
   },
