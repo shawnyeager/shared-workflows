@@ -4,7 +4,7 @@
   "extends": [
     "config:recommended",
     ":semanticCommits",
-    ":dependencyDashboard"
+    ":disableDependencyDashboard"
   ],
   "schedule": ["before 6am on monday"],
   "timezone": "UTC",
@@ -13,8 +13,7 @@
     "enabled": false
   },
   "lockFileMaintenance": {
-    "enabled": true,
-    "schedule": ["before 6am on monday"]
+    "enabled": false
   },
   "stabilityDays": 3,
   "vulnerabilityAlerts": {
