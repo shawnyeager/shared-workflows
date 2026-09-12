@@ -63,6 +63,19 @@ Validates Go version alignment between `go.mod` and `netlify.toml`, and verifies
 
 Reusable workflow for creating theme update PRs. Not called by any cron --- theme PRs are created manually. Available via `workflow_dispatch` if needed as a one-off.
 
+## Renovate
+
+Shared base preset: [`default.json`](./default.json). Repos extend it with:
+
+```json
+{ "extends": ["github>shawnyeager/shared-workflows"] }
+```
+
+Operator docs:
+
+- [Dependency maintenance](./docs/runbooks/dependency-maintenance.md) — Monday PR triage
+- [Dependency audit](./docs/runbooks/dependency-audit.md) — one-off scans
+
 ## Maintenance
 
 Used by:
