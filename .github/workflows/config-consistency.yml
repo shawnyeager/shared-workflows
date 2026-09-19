@@ -17,16 +17,32 @@ jobs:
 
       - name: Verify Go version consistency
         run: |
+          if [ ! -f vercel.json ]; then
+            echo "::error::vercel.json is missing; Go version is pinned there after the Netlify cutover"
+            exit 1
+          fi
+
           GO_MOD_VERSION=$(grep "^go " go.mod | awk '{print $2}')
-          NETLIFY_GO_VERSION=$(grep "^  GO_VERSION = " netlify.toml | awk -F'"' '{print $2}')
+          VERCEL_GO_VERSION=$(jq -r '.env.GO_VERSION // empty' vercel.json)
+          TARBALL_GO_VERSION=$(jq -r '.buildCommand // empty' vercel.json | grep -oE 'go[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/^go//')
 
           echo "Checking Go version alignment..."
           echo "  go.mod: $GO_MOD_VERSION"
-          echo "  netlify.toml: $NETLIFY_GO_VERSION"
+          echo "  vercel.json env.GO_VERSION: $VERCEL_GO_VERSION"
+          echo "  vercel.json build tarball: $TARBALL_GO_VERSION"
 
-          if [ "$GO_MOD_VERSION" != "$NETLIFY_GO_VERSION" ]; then
-            echo ""
-            echo "::error::Go versions don't match - go.mod: $GO_MOD_VERSION, netlify.toml: $NETLIFY_GO_VERSION"
+          if [ -z "$VERCEL_GO_VERSION" ]; then
+            echo "::error::vercel.json is missing env.GO_VERSION"
+            exit 1
+          fi
+
+          if [ "$GO_MOD_VERSION" != "$VERCEL_GO_VERSION" ]; then
+            echo "::error::Go versions don't match - go.mod: $GO_MOD_VERSION, vercel.json: $VERCEL_GO_VERSION"
+            exit 1
+          fi
+
+          if [ -n "$TARBALL_GO_VERSION" ] && [ "$GO_MOD_VERSION" != "$TARBALL_GO_VERSION" ]; then
+            echo "::error::Go tarball doesn't match go.mod - go.mod: $GO_MOD_VERSION, buildCommand: go$TARBALL_GO_VERSION"
             exit 1
           fi
 
