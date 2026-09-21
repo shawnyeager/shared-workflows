@@ -55,7 +55,7 @@ jobs:
 
 #### config-consistency.yml
 
-Validates Go version alignment between `go.mod` and `netlify.toml`, and verifies the theme `require` statement exists in `go.mod`.
+Validates Go version alignment between `go.mod` and `vercel.json` (`env.GO_VERSION` and the Go tarball in `buildCommand`), and verifies the theme `require` statement exists in `go.mod`.
 
 ### Theme Update PR (Manual Use)
 
