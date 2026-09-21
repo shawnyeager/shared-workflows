@@ -97,17 +97,17 @@ jobs:
 
             ### Deploy Preview
 
-            Netlify will automatically build a **FREE deploy preview** for this PR.
+            Vercel will build a deploy preview for this PR.
             Check the preview URL below before merging.
 
             ### Next Steps
 
-            1. Wait for Netlify deploy preview to complete
+            1. Wait for the Vercel deploy preview to complete
             2. Review the preview URL
             3. Test site functionality
             4. Merge this PR when satisfied
 
-            Merging will trigger ONE production build (15 credits).
+            Merging deploys production.
 
             ---
 
